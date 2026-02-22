@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-primary: #000000;
+  --color-secondary: #333333;
+  --color-background: #F8F8F8;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-primary font-sans antialiased;
+  }
+}
+
+.premium-card {
+  @apply bg-white border border-black/5 rounded-2xl shadow-sm overflow-hidden;
+}
+
+.btn-primary {
+  @apply bg-black text-white px-6 py-3 rounded-xl font-medium transition-all active:scale-95 hover:bg-secondary;
+}
+
+.btn-secondary {
+  @apply bg-white text-black border border-black/10 px-6 py-3 rounded-xl font-medium transition-all active:scale-95 hover:bg-background;
+}
+
+.nav-item {
+  @apply flex flex-col items-center justify-center gap-1 text-secondary/60 transition-colors;
+}
+
+.nav-item.active {
+  @apply text-primary;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
