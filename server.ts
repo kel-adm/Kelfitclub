@@ -15,7 +15,9 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   console.error("CRITICAL: Supabase environment variables are missing! Check your Secrets panel.");
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+// Initialize with placeholders if missing to avoid immediate crash, 
+// but actual calls will fail gracefully with error handling in routes.
+const supabase = createClient(SUPABASE_URL || "https://placeholder.supabase.co", SUPABASE_SERVICE_KEY || "placeholder");
 
 const isNetlify = process.env.NETLIFY === "true" || !!process.env.FUNCTIONS_CONTROL_PLANE;
 
@@ -96,6 +98,36 @@ app.post("/api/auth/register", async (req, res) => {
   } catch (err: any) {
     console.error("Register exception:", err);
     res.status(500).json({ error: "Erro interno no servidor ao registrar." });
+  }
+});
+
+app.post("/api/auth/google", async (req, res) => {
+  const { email, name, id } = req.body;
+  try {
+    let { data: user, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("email", email)
+      .single();
+
+    if (error && error.code === 'PGRST116') {
+      const { data: newUser, error: createError } = await supabase
+        .from("users")
+        .insert([{ id, email, name, role: 'user', password: 'oauth-user' }])
+        .select()
+        .single();
+      
+      if (createError) throw createError;
+      user = newUser;
+    } else if (error) {
+      throw error;
+    }
+
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET);
+    res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role, language: user.language } });
+  } catch (err: any) {
+    console.error("Google sync error:", err);
+    res.status(500).json({ error: `Erro ao sincronizar usuário: ${err.message}` });
   }
 });
 
