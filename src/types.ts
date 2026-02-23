@@ -1,7 +1,7 @@
 export type Language = 'pt' | 'en' | 'es';
 
 export interface User {
-  id: number;
+  id: string;
   email: string;
   name: string;
   role: 'user' | 'admin';
@@ -13,7 +13,7 @@ export interface User {
 }
 
 export interface Workout {
-  id: number;
+  id: string;
   name: string;
   type: string; // A, B, C
   category: 'Home' | 'Gym';
@@ -25,8 +25,8 @@ export interface Workout {
 }
 
 export interface Exercise {
-  id: number;
-  workout_id: number;
+  id: string;
+  workout_id: string;
   name: string;
   video_url: string;
   description: string;
@@ -34,12 +34,12 @@ export interface Exercise {
 }
 
 export interface Progress {
-  id: number;
-  user_id: number;
+  id: string;
+  user_id: string;
   date: string;
   weight: number;
   water_intake: number;
-  workout_completed_id?: number;
+  workout_completed_id?: string;
 }
 
 export interface AppConfig {
