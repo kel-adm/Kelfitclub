@@ -11,6 +11,10 @@ dotenv.config();
 const SUPABASE_URL = process.env.SUPABASE_URL || "";
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
+if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+  console.error("CRITICAL: Supabase environment variables are missing! Check your Secrets panel.");
+}
+
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 const isNetlify = process.env.NETLIFY === "true" || !!process.env.FUNCTIONS_CONTROL_PLANE;
@@ -45,17 +49,30 @@ app.get("/api/health", (req, res) => {
 app.post("/api/auth/login", async (req, res) => {
   const { email, password } = req.body;
   
-  const { data: user, error } = await supabase
-    .from("users")
-    .select("*")
-    .eq("email", email)
-    .single();
+  try {
+    const { data: user, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("email", email)
+      .single();
 
-  if (user && bcrypt.compareSync(password, user.password)) {
-    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET);
-    res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role, language: user.language } });
-  } else {
-    res.status(401).json({ error: "Invalid credentials" });
+    if (error) {
+      console.error("Supabase login error:", error);
+      if (error.code === 'PGRST116') {
+        return res.status(401).json({ error: "Usuário não encontrado. Por favor, registre-se." });
+      }
+      return res.status(500).json({ error: `Erro no banco de dados: ${error.message}. Verifique se as tabelas foram criadas.` });
+    }
+
+    if (user && bcrypt.compareSync(password, user.password)) {
+      const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET);
+      res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role, language: user.language } });
+    } else {
+      res.status(401).json({ error: "Senha incorreta." });
+    }
+  } catch (err: any) {
+    console.error("Login exception:", err);
+    res.status(500).json({ error: "Erro interno no servidor ao tentar logar." });
   }
 });
 
@@ -69,12 +86,16 @@ app.post("/api/auth/register", async (req, res) => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error("Supabase register error:", error);
+      return res.status(400).json({ error: `Erro ao registrar: ${error.message}` });
+    }
 
     const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET);
     res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role, language: user.language } });
   } catch (err: any) {
-    res.status(400).json({ error: err.message || "User already exists" });
+    console.error("Register exception:", err);
+    res.status(500).json({ error: "Erro interno no servidor ao registrar." });
   }
 });
 
