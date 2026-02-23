@@ -1,5 +1,4 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import path from "path";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
@@ -13,6 +12,8 @@ const SUPABASE_URL = process.env.SUPABASE_URL || "";
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+const isNetlify = process.env.NETLIFY === "true" || !!process.env.FUNCTIONS_CONTROL_PLANE;
 
 const app = express();
 app.use(express.json());
@@ -168,15 +169,23 @@ app.delete("/api/admin/workouts/:id", authenticate, async (req, res) => {
   res.json({ success: true });
 });
 
-// Vite middleware for development
+// Vite middleware for development (Dynamic import to avoid production bundling issues)
 async function setupVite() {
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
+  if (process.env.NODE_ENV !== "production" && !isNetlify) {
+    try {
+      // Use a dynamic import that is less likely to be followed by bundlers
+      const viteModule = "vite";
+      const { createServer: createViteServer } = await import(viteModule);
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+    } catch (e) {
+      console.warn("Vite not found, skipping middleware");
+    }
+  } else if (process.env.NODE_ENV === "production" && !isNetlify) {
+    // Only serve static files if NOT on Netlify (Netlify serves them via CDN)
     app.use(express.static(path.join(process.cwd(), "dist")));
     app.get("*", (req, res) => {
       if (req.path.startsWith("/api")) return;
@@ -191,7 +200,7 @@ setupVite();
 export const handler = serverless(app);
 
 // Local server for development
-if (process.env.NODE_ENV !== "production") {
+if (process.env.NODE_ENV !== "production" && !isNetlify) {
   const PORT = 3000;
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
